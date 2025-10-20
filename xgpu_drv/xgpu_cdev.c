@@ -208,11 +208,6 @@ static void file_destroy_interfaces(struct xgpu_pci_dev *xpdev, int type)
 
     list_for_each(cursor, &xpdev->listHead[type]) {
         struct xcdev_member *member = list_entry(cursor, struct xcdev_member, entry);
-        int32_t devId = member->xcdev.cdevno;
-        if ((devId >= item_config_max) && (devId < item_register_max)) {
-            cdev_register_exit(&member->xcdev);
-        }
-
         if (member && destroy_xcdev(&member->xcdev) < 0) {
             pr_err("%s: failed to destroy device\n", __func__);
             return;

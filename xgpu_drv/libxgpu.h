@@ -87,13 +87,13 @@ struct xgpu_user_irq {
 /* PCIe device specific book-keeping */
 #define XDEV_FLAG_OFFLINE	0x1
 struct xgpu_dev {
-	struct list_head list_head;
-	struct list_head rcu_node;
+    struct list_head list_head;
+    struct list_head rcu_node;
 
-	struct pci_dev* pdev;		/* pci device struct from probe() */
-	int             idx;		/* dev index */
-	const char*     mod_name;	/* name of module owning the dev */
-	spinlock_t      lock;		/* protects concurrent access */
+    struct pci_dev* pdev;	/* pci device struct from probe() */
+    int             idx;	/* dev index */
+    const char*     mod_name;	/* name of module owning the dev */
+    spinlock_t      lock;	/* protects concurrent access */
     unsigned int    flags;
 
     /* PCIe BAR management */
@@ -117,6 +117,7 @@ struct xgpu_dev {
 	struct xgpu_user_irq user_irq[16];	/* user IRQ management */
 	unsigned int mask_irq_user;
 };
+
 static inline void xgpu_device_flag_set(struct xgpu_dev *xdev, unsigned int f)
 {
 	unsigned long flags;

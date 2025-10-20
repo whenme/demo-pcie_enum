@@ -113,34 +113,33 @@ static void check_nonzero_interrupt_status(struct xgpu_dev *xdev)
 	struct interrupt_regs *reg =
 		(struct interrupt_regs *)(xdev->bar[xdev->config_bar_idx] +
 					  XDMA_OFS_INT_CTRL);
-	u32 w;
 
-	w = read_register(&reg->user_int_enable);
+	u32 w = read_register(&reg->user_int_enable);
 	if (w)
-		pr_info("%s xdma%d user_int_enable = 0x%08x\n",
+		pr_info("%s xgpu%d user_int_enable = 0x%08x\n",
 			dev_name(&xdev->pdev->dev), xdev->idx, w);
 
 	w = read_register(&reg->channel_int_enable);
 	if (w)
-		pr_info("%s xdma%d channel_int_enable = 0x%08x\n",
+		pr_info("%s xgpu%d channel_int_enable = 0x%08x\n",
 			dev_name(&xdev->pdev->dev), xdev->idx, w);
 
 	w = read_register(&reg->user_int_request);
 	if (w)
-		pr_info("%s xdma%d user_int_request = 0x%08x\n",
+		pr_info("%s xgpu%d user_int_request = 0x%08x\n",
 			dev_name(&xdev->pdev->dev), xdev->idx, w);
 	w = read_register(&reg->channel_int_request);
 	if (w)
-		pr_info("%s xdma%d channel_int_request = 0x%08x\n",
+		pr_info("%s xgpu%d channel_int_request = 0x%08x\n",
 			dev_name(&xdev->pdev->dev), xdev->idx, w);
 
 	w = read_register(&reg->user_int_pending);
 	if (w)
-		pr_info("%s xdma%d user_int_pending = 0x%08x\n",
+		pr_info("%s xgpu%d user_int_pending = 0x%08x\n",
 			dev_name(&xdev->pdev->dev), xdev->idx, w);
 	w = read_register(&reg->channel_int_pending);
 	if (w)
-		pr_info("%s xdma%d channel_int_pending = 0x%08x\n",
+		pr_info("%s xgpu%d channel_int_pending = 0x%08x\n",
 			dev_name(&xdev->pdev->dev), xdev->idx, w);
 #endif
 }
@@ -165,6 +164,16 @@ static void channel_interrupts_disable(struct xgpu_dev *xdev, u32 mask)
 	write_register(mask, &reg->channel_int_enable_w1c, XDMA_OFS_INT_CTRL);
 }
 
+/* user_interrupts_enable -- Enable interrupts we are interested in */
+static void user_interrupts_enable(struct xgpu_dev *xdev, u32 mask)
+{
+	struct interrupt_regs *reg =
+		(struct interrupt_regs *)(xdev->bar[xdev->config_bar_idx] +
+					  XDMA_OFS_INT_CTRL);
+
+	write_register(mask, &reg->user_int_enable_w1s, XDMA_OFS_INT_CTRL);
+}
+
 /* user_interrupts_disable -- Disable interrupts we not interested in */
 static void user_interrupts_disable(struct xgpu_dev *xdev, u32 mask)
 {
@@ -181,8 +190,7 @@ static u32 read_interrupts(struct xgpu_dev *xdev)
 	struct interrupt_regs *reg =
 		(struct interrupt_regs *)(xdev->bar[xdev->config_bar_idx] +
 					  XDMA_OFS_INT_CTRL);
-	u32 lo;
-	u32 hi;
+	u32 lo, hi;
 
 	/* extra debugging; inspect complete engine set of registers */
 	hi = read_register(&reg->user_int_request);
@@ -457,7 +465,7 @@ static int identify_bars(struct xgpu_dev *xdev, int *bar_id_list, int num_bars,
 		} else if (config_bar_pos == 1) {
 			xdev->user_bar_idx = bar_id_list[0];
 		} else {
-			pr_info("%s: 2, XDMA config BAR unexpected %d.\n",
+			pr_info("%s: 2, XGPU config BAR unexpected %d.\n",
 				__func__, config_bar_pos);
 		}
 		break;
@@ -470,14 +478,14 @@ static int identify_bars(struct xgpu_dev *xdev, int *bar_id_list, int num_bars,
 			/* bypass bar at the last bar */
 			xdev->bypass_bar_idx = bar_id_list[num_bars - 1];
 		} else {
-			pr_info("%s: 3/4, XDMA config BAR unexpected %d.\n",
+			pr_info("%s: 3/4, XGPU config BAR unexpected %d.\n",
 				__func__, config_bar_pos);
 		}
 		break;
 
 	default:
 		/* Should not occur - warn user but safe to continue */
-		pr_info("%s: Unexpected # BARs (%d), XDMA config BAR only.\n",
+		pr_info("%s: Unexpected # BARs (%d), XGPU config BAR only.\n",
             __func__, num_bars);
 		break;
 	}
@@ -496,7 +504,8 @@ static int map_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
     int rv;
     int bar_id_list[XGPU_BAR_NUM];
     int bar_id_idx = 0;
-    int config_bar_pos = 0;
+    pr_warn("manually set config bar to 5...\n");
+    int config_bar_pos = 5;
 
 	/* iterate through all the BARs */
 	for (int i = 0; i < XGPU_BAR_NUM; i++) {
@@ -508,7 +517,7 @@ static int map_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
 			goto fail;
 		}
 
-		// Try to identify BAR as XDMA control BAR
+		// Try to identify BAR as XGPU control BAR
 		/*if ((bar_len >= XGPU_BAR_SIZE) && (xdev->config_bar_idx < 0)) {
 			if (is_config_bar(xdev, i)) {
 				xdev->config_bar_idx = i;
@@ -522,11 +531,10 @@ static int map_bars(struct xgpu_dev *xdev, struct pci_dev *dev)
 		bar_id_idx++;
 	}
 
-    pr_warn("manually set config bar to 1...\n"); 
-    xdev->config_bar_idx = 1;
+    xdev->config_bar_idx = 5;
 	/* The XDMA config BAR must always be present */
 	if (xdev->config_bar_idx < 0) {
-		pr_info("Failed to detect XDMA config BAR\n");
+		pr_info("Failed to detect XGPU config BAR\n");
 		rv = -EINVAL;
 		goto fail;
 	}
@@ -611,18 +619,19 @@ static int enable_msi_msix(struct xgpu_dev *xdev, struct pci_dev *pdev)
 
 		dbg_init("Enabling MSI-X\n");
 		rv = pci_alloc_irq_vectors(pdev, req_nvec, req_nvec, PCI_IRQ_MSIX);
-		if (rv < 0)
-			dbg_init("Couldn't enable MSI-X mode: %d\n", rv);
+        if (rv < 0)
+            dbg_init("Couldn't enable MSI-X mode: %d\n", rv);
 
-		xdev->msix_enabled = 1;
+        xdev->msix_enabled = 1;
 	} else if ((interrupt_mode == 1 || !interrupt_mode) &&
-		   msi_msix_capable(pdev, PCI_CAP_ID_MSI)) {
+        msi_msix_capable(pdev, PCI_CAP_ID_MSI)) {
 		/* enable message signalled interrupts */
 		dbg_init("pci_enable_msi()\n");
 		rv = pci_enable_msi(pdev);
-		if (rv < 0)
-			dbg_init("Couldn't enable MSI mode: %d\n", rv);
-		xdev->msi_enabled = 1;
+        if (rv < 0)
+            dbg_init("Couldn't enable MSI mode: %d\n", rv);
+
+        xdev->msi_enabled = 1;
 	} else {
 		dbg_init("MSI/MSI-X not detected - using legacy interrupts\n");
 	}
@@ -669,9 +678,8 @@ static void prog_irq_msix_user(struct xgpu_dev *xdev, bool clear)
     //fix it...
 	u32 i = 0;//= xdev->c2h_channel_max + xdev->h2c_channel_max;
 	u32 max = i + xdev->user_max;
-	int j;
 
-	for (j = 0; i < max; j++) {
+	for (int j = 0; i < max; j++) {
 		u32 val = 0;
 		int k, shift = 0;
 
@@ -682,9 +690,7 @@ static void prog_irq_msix_user(struct xgpu_dev *xdev, bool clear)
 				val |= (i & 0x1f) << shift;
 
 		write_register(val, &int_regs->user_msi_vector[j],
-			XDMA_OFS_INT_CTRL +
-				((unsigned long)&int_regs->user_msi_vector[j] -
-				 (unsigned long)int_regs));
+			XDMA_OFS_INT_CTRL +	((u32)&int_regs->user_msi_vector[j] - (u32)int_regs));
 
 		dbg_init("vector %d, 0x%x.\n", j, val);
 	}
@@ -712,9 +718,7 @@ static void prog_irq_msix_channel(struct xgpu_dev *xdev, bool clear)
 
 		write_register(val, &int_regs->channel_msi_vector[j],
 			       XDMA_OFS_INT_CTRL +
-				       ((unsigned long)&int_regs
-						->channel_msi_vector[j] -
-					(unsigned long)int_regs));
+				       ((u32)&int_regs->channel_msi_vector[j] -	(u32)int_regs));
 		dbg_init("vector %d, 0x%x.\n", j, val);
 	}
 }
@@ -876,10 +880,8 @@ static int irq_msix_user_setup(struct xgpu_dev *xdev)
 
 static int irq_msi_setup(struct xgpu_dev *xdev, struct pci_dev *pdev)
 {
-	int rv;
-
 	xdev->irq_line = (int)pdev->irq;
-	rv = request_irq(pdev->irq, xgpu_isr, 0, xdev->mod_name, xdev);
+	int rv = request_irq(pdev->irq, xgpu_isr, 0, xdev->mod_name, xdev);
 	if (rv)
 		dbg_init("Couldn't use IRQ#%d, %d\n", pdev->irq, rv);
 	else
@@ -890,10 +892,7 @@ static int irq_msi_setup(struct xgpu_dev *xdev, struct pci_dev *pdev)
 
 static int irq_legacy_setup(struct xgpu_dev *xdev, struct pci_dev *pdev)
 {
-	u32 w;
 	u8 val;
-	void *reg;
-	int rv;
 
 	pci_read_config_byte(pdev, PCI_INTERRUPT_PIN, &val);
 	if (val == 0) {
@@ -904,11 +903,11 @@ static int irq_legacy_setup(struct xgpu_dev *xdev, struct pci_dev *pdev)
 	dbg_init("Legacy Interrupt register value = %d\n", val);
 	if (val > 1) {
 		val--;
-		w = (val << 24) | (val << 16) | (val << 8) | val;
+		u32 w = (val << 24) | (val << 16) | (val << 8) | val;
 		/* Program IRQ Block Channel vector and IRQ Block User vector
 		 * with Legacy interrupt value
 		 */
-		reg = xdev->bar[xdev->config_bar_idx] + 0x2080; // IRQ user
+		void *reg = xdev->bar[xdev->config_bar_idx] + 0x2080; // IRQ user
 		write_register(w, reg, 0x2080);
 		write_register(w, reg + 0x4, 0x2084);
 		write_register(w, reg + 0x8, 0x2088);
@@ -919,7 +918,7 @@ static int irq_legacy_setup(struct xgpu_dev *xdev, struct pci_dev *pdev)
 	}
 
 	xdev->irq_line = (int)pdev->irq;
-	rv = request_irq(pdev->irq, xgpu_isr, IRQF_SHARED, xdev->mod_name,
+	int rv = request_irq(pdev->irq, xgpu_isr, IRQF_SHARED, xdev->mod_name,
 			 xdev);
 	if (rv)
 		dbg_init("Couldn't use IRQ#%d, %d\n", pdev->irq, rv);
@@ -1102,6 +1101,7 @@ void *xgpu_device_open(const char *mname, struct pci_dev *pdev, int *user_max)
         pr_warn("%s: failed to set_dma_mask", __func__);
         goto err_mask;
     }
+
 //fit it...
     check_nonzero_interrupt_status(xdev);
     // explicitely zero all interrupt enable masks
@@ -1112,7 +1112,7 @@ void *xgpu_device_open(const char *mname, struct pci_dev *pdev, int *user_max)
     rv = probe_engines(xdev);
     if (rv)
         goto err_mask;
-*/
+
     rv = enable_msi_msix(xdev, pdev);
     if (rv < 0) {
         pr_warn("%s: fail to enable msi/msix", __func__);
@@ -1125,7 +1125,7 @@ void *xgpu_device_open(const char *mname, struct pci_dev *pdev, int *user_max)
 
     // Flush writes 
     read_interrupts(xdev);
-
+*/
     *user_max = xdev->user_max;
 
     xgpu_device_flag_clear(xdev, XDEV_FLAG_OFFLINE);

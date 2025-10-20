@@ -21,6 +21,5 @@ static const xgpu_cdev_node register_items[] = {
 static const int item_register_max = item_config_max + sizeof(register_items)/sizeof(xgpu_cdev_node);
 
 void cdev_register_init(struct xgpu_cdev *xcdev);
-void cdev_register_exit(struct xgpu_cdev *xcdev);
 
 #endif

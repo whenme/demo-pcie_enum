@@ -117,13 +117,5 @@ void cdev_register_init(struct xgpu_cdev *xcdev)
     cdev_init(&xcdev->cdev, &register_fops);
 
     // AMD registers are in BAR5
-    pcimap_addr = pci_iomap(xcdev->xdev->pdev, 5, 0);
-}
-
-void cdev_register_exit(struct xgpu_cdev *xcdev)
-{
-    if (pcimap_addr) {
-        pci_iounmap(xcdev->xdev->pdev, pcimap_addr);
-        pcimap_addr = NULL;
-    }
+    pcimap_addr = xcdev->xdev->bar[5];
 }

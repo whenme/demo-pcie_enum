@@ -5,11 +5,9 @@ KVERSION ?= $(shell uname -r)
 SOURCES := xgpu_mod.c xgpu_cdev.c libxgpu.c cdev_ctrl.c cdev_config.c cdev_register.c
 OBJS    := $(SOURCES:.c=.o)
 
-ccflags-y := -std=gnu99 -Wno-declaration-after-statement
+ccflags-y := -std=gnu99 -Wno-declaration-after-statement -D__LIBXGPU_DEBUG__ -I.
 
 TARGET_MODULE := xgpu
-
-EXTRA_CFLAGS := -I. -D__LIBXGPU_DEBUG__
 
 $(TARGET_MODULE)-objs := $(OBJS)
 obj-m := $(TARGET_MODULE).o
